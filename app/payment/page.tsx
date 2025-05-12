@@ -1,3 +1,5 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -6,9 +8,99 @@ import { SpaceBackground } from "@/components/space-background"
 import { AppHeader } from "@/components/app-header"
 import { CreditCard, Smartphone, Wallet } from "lucide-react"
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useState } from "react"
+import { createClient } from "@/utils/supabase/client"
 import { Separator } from "@/components/ui/separator"
 
 export default function PaymentPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const storeId = searchParams.get('store') || "1"; // デフォルト店舗ID
+  const eatType = searchParams.get('eatType') || "eatIn"; // デフォルト食事タイプ
+  
+  const [paymentMethod, setPaymentMethod] = useState("credit-card");
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // カートアイテムのモックデータ（実際のアプリではカート状態から取得する）
+  const cartItems = [
+    {
+      id: 1,
+      name: "宇宙特製うどん",
+      price: 980,
+      quantity: 1,
+      options: ["麺の硬さ：普通", "トッピング：温泉卵(+¥100)"],
+      image: "/placeholder.svg?height=100&width=100",
+    },
+    {
+      id: 7,
+      name: "海老天（2本）",
+      price: 480,
+      quantity: 2,
+      options: [],
+      image: "/placeholder.svg?height=100&width=100",
+    },
+    {
+      id: 11,
+      name: "緑茶",
+      price: 180,
+      quantity: 1,
+      options: [],
+      image: "/placeholder.svg?height=100&width=100",
+    },
+  ];
+
+  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const tax = Math.floor(subtotal * 0.1);
+  const total = subtotal + tax;
+  
+  // 支払い処理と注文登録
+  const handlePayment = async () => {
+    setIsLoading(true);
+    
+    try {
+      const supabase = createClient();
+      
+      // 現在の日時
+      const now = new Date();
+      
+      // 注文番号の生成（例: 店舗ID + 年月日 + ランダム数字3桁）
+      const orderNumberPrefix = `${storeId}-${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}`;
+      const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const orderNumber = `${orderNumberPrefix}-${randomSuffix}`;
+      
+      // ORDERテーブルに注文データを挿入
+      const { data, error } = await supabase
+        .from('ORDER')
+        .insert({
+          totalPrice: total,
+          store_id: parseInt(storeId),
+          orderAt: now.toISOString(),
+          numbered: orderNumber,
+          status_id: 1, // 1: 注文受付
+          eat_style: eatType,
+          payment_method: paymentMethod
+        })
+        .select();
+      
+      if (error) {
+        console.error('注文の保存に失敗しました:', error);
+        throw new Error('注文の保存に失敗しました');
+      }
+      
+      console.log('注文が完了しました:', data);
+      
+      // 注文完了ページに遷移
+      router.push('/order-complete');
+      
+    } catch (error) {
+      console.error('決済処理中にエラーが発生しました:', error);
+      alert('決済処理中にエラーが発生しました。もう一度お試しください。');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <main className="min-h-screen relative">
       <SpaceBackground />
@@ -18,7 +110,7 @@ export default function PaymentPage() {
         <Card className="bg-black/60 border-purple-500/30 backdrop-blur-md mb-6">
           <CardContent className="p-4">
             <h3 className="text-lg font-medium mb-4">支払い方法</h3>
-            <RadioGroup defaultValue="credit-card">
+            <RadioGroup defaultValue="credit-card" onValueChange={setPaymentMethod} value={paymentMethod}>
               <div className="flex items-center space-x-2 mb-4 p-3 border border-purple-500/30 rounded-md">
                 <RadioGroupItem id="credit-card" value="credit-card" />
                 <Label htmlFor="credit-card" className="text-gray-300 flex items-center">
@@ -130,18 +222,18 @@ export default function PaymentPage() {
 
               <div className="flex justify-between">
                 <span className="text-gray-300">小計</span>
-                <span className="text-white">¥2,220</span>
+                <span className="text-white">¥{subtotal.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-300">消費税（10%）</span>
-                <span className="text-white">¥222</span>
+                <span className="text-white">¥{tax.toLocaleString()}</span>
               </div>
 
               <Separator className="my-3 bg-purple-500/20" />
 
               <div className="flex justify-between">
                 <span className="text-lg font-medium text-white">合計</span>
-                <span className="text-lg font-bold text-white">¥2,442</span>
+                <span className="text-lg font-bold text-white">¥{total.toLocaleString()}</span>
               </div>
             </div>
           </CardContent>
@@ -152,13 +244,15 @@ export default function PaymentPage() {
         <div className="container max-w-md mx-auto">
           <div className="flex justify-between items-center mb-3">
             <span className="text-gray-300">合計</span>
-            <span className="text-xl font-bold text-white">¥2,442</span>
+            <span className="text-xl font-bold text-white">¥{total.toLocaleString()}</span>
           </div>
-          <Link href="/order-complete">
-            <Button className="w-full py-6 bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800">
-              支払いを完了する
-            </Button>
-          </Link>
+          <Button 
+            className="w-full py-6 bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800"
+            disabled={isLoading}
+            onClick={handlePayment}
+          >
+            {isLoading ? '処理中...' : '支払いを完了する'}
+          </Button>
         </div>
       </div>
     </main>

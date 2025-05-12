@@ -5,9 +5,81 @@ import { SpaceBackground } from "@/components/space-background"
 import { MapPin, Search, Navigation, Clock, CreditCard, User, UserCheck } from "lucide-react"
 import Link from "next/link"
 import { AppHeader } from "@/components/app-header"
+import { createClient } from "@/utils/supabase/server"
 
-export default function StoresPage() {
-  const stores = [
+// Supabaseのテーブル構成に合わせたデータ型
+type StoreRecord = {
+  id: number
+  name: string
+  location: string
+  contactNumber: string
+  openingHours: string
+  staffFlag: boolean
+}
+
+// アプリケーションで使用するデータ型
+type Store = {
+  id: number
+  name: string
+  address: string
+  distance: string
+  status: string
+  staffed: boolean
+  hours: string
+  waitTime: string
+  paymentMethods: string[]
+}
+
+// Supabaseのデータをアプリケーションのデータ形式に変換
+function mapStoreData(records: StoreRecord[]): Store[] {
+  return records.map(record => ({
+    id: record.id,
+    name: record.name,
+    address: record.location, // locationをaddressにマッピング
+    distance: "0.5km", // 固定値として設定
+    status: "営業中", // デフォルト値
+    staffed: record.staffFlag, // staffFlagをstaffedにマッピング
+    hours: record.openingHours, // openingHoursをhoursにマッピング
+    waitTime: "約10分", // デフォルト値
+    paymentMethods: ["現金", "クレジットカード"] // デフォルト値
+  }))
+}
+
+async function getStores(): Promise<Store[]> {
+  const supabase = await createClient()
+  
+  try {
+    // STOREテーブルからすべてのデータを取得
+    const { data, error } = await supabase
+      .from('STORE')
+      .select('*')
+    
+    if (error) {
+      console.error('Storesデータの取得エラー:', error)
+      return []
+    }
+
+    console.log('取得したSTOREデータ:', data)
+    
+    // データが存在しない場合は空配列を返す
+    if (!data || data.length === 0) {
+      console.log('STOREテーブルにデータがありません')
+      return []
+    }
+    
+    // Supabaseから取得したデータをアプリケーションのデータ形式に変換
+    return mapStoreData(data)
+  } catch (e) {
+    console.error('データ取得中に例外が発生しました:', e)
+    return []
+  }
+}
+
+export default async function StoresPage() {
+  const stores = await getStores()
+
+  // 店舗データが存在しない場合のフォールバックデータ
+  const fallbackStores: Store[] = stores.length > 0 ? stores : [
     {
       id: 1,
       name: "大阪蛍池店",
@@ -40,7 +112,7 @@ export default function StoresPage() {
       hours: "8:30 - 22:30",
       waitTime: "約0分",
       paymentMethods: ["現金のみ"]
-    },
+    }
   ]
 
   return (
@@ -69,7 +141,7 @@ export default function StoresPage() {
         </div>
 
         <div className="space-y-4">
-          {stores.map((store) => (
+          {fallbackStores.map((store) => (
             <Card key={store.id} className="bg-black/60 border-purple-500/30 backdrop-blur-md hover:bg-black/70 transition-colors cursor-pointer">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">

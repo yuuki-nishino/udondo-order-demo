@@ -11,50 +11,19 @@ import { Minus, Plus, Star } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useParams, useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { createClient } from "@/utils/supabase/client"
 
 // メニュー項目の型定義
 type MenuItem = {
+  id: number;
   name: string;
   price: number;
   description: string;
-  image: string;
-  allergens: string[];
+  category: string;
+  image?: string;
   popular?: boolean;
-};
-
-// 全メニュー項目をコンポーネントの外に定義
-const allMenuItems: Record<string, MenuItem> = {
-  "1": {
-    name: "かけウドンド",
-    price: 550,
-    description: "シンプルながらも深い味わいのかけウドンド",
-    image: "/placeholder.svg?height=400&width=400",
-    popular: true,
-    allergens: ["小麦"],
-  },
-  "2": {
-    name: "かけ油ウドンド",
-    price: 550,
-    description: "特製の油が香る、風味豊かなウドンド",
-    image: "/placeholder.svg?height=400&width=400",
-    allergens: ["小麦"],
-  },
-  "3": {
-    name: "みつか坊主のエビ味噌咖喱ウドンド",
-    price: 730,
-    description: "みつか坊主特製のエビ味噌咖喱と絶妙に絡むウドンド",
-    image: "/placeholder.svg?height=400&width=400",
-    popular: true,
-    allergens: ["小麦", "えび"],
-  },
-  // デフォルト
-  "default": {
-    name: "メニュー",
-    price: 0,
-    description: "メニュー情報",
-    image: "/placeholder.svg?height=400&width=400",
-    allergens: [],
-  }
+  allergens?: string[];
 };
 
 export default function MenuItemPage() {
@@ -62,16 +31,95 @@ export default function MenuItemPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const id = params.id as string;
+  const [menuItem, setMenuItem] = useState<MenuItem | null>(null);
+  const [loading, setLoading] = useState(true);
   
   // URLクエリパラメータを保持して戻る
-  const storeId = searchParams.get('store')
-  const eatType = searchParams.get('eatType')
+  const storeId = searchParams.get('store');
+  const eatType = searchParams.get('eatType');
   const backUrl = storeId && eatType 
     ? `/menu?store=${storeId}&eatType=${eatType}` 
-    : '/menu'
+    : '/menu';
   
-  // IDが存在しない場合はデフォルト値を使用
-  const menuItem = allMenuItems[id] || allMenuItems.default;
+  // Supabaseからメニューデータを取得
+  useEffect(() => {
+    async function fetchMenuItem() {
+      setLoading(true);
+      const supabase = createClient();
+      
+      try {
+        // MENUテーブルから指定されたIDのデータを取得
+        const { data, error } = await supabase
+          .from('MENU')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (error) {
+          console.error('メニューデータの取得エラー:', error);
+          // エラー時のフォールバックデータ
+          setMenuItem({
+            id: parseInt(id),
+            name: "メニュー",
+            price: 0,
+            description: "メニュー情報が見つかりませんでした",
+            category: "",
+            image: "/placeholder.svg?height=400&width=400",
+            allergens: []
+          });
+          return;
+        }
+        
+        // データをセット
+        if (data) {
+          setMenuItem({
+            id: data.id,
+            name: data.name,
+            price: data.price,
+            description: data.description,
+            category: data.category,
+            image: data.image || "/placeholder.svg?height=400&width=400",
+            popular: data.popular || false,
+            allergens: data.allergens ? data.allergens.split(';') : []
+          });
+        }
+      } catch (e) {
+        console.error('データ取得中に例外が発生しました:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchMenuItem();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <main className="min-h-screen relative">
+        <SpaceBackground />
+        <AppHeader title="メニュー詳細" backUrl={backUrl} />
+        <div className="container max-w-md mx-auto p-4 pt-20 pb-32 z-10 relative">
+          <div className="flex justify-center items-center h-60">
+            <div className="text-purple-300">メニューを読み込み中...</div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!menuItem) {
+    return (
+      <main className="min-h-screen relative">
+        <SpaceBackground />
+        <AppHeader title="メニュー詳細" backUrl={backUrl} />
+        <div className="container max-w-md mx-auto p-4 pt-20 pb-32 z-10 relative">
+          <div className="flex justify-center items-center h-60">
+            <div className="text-red-300">メニューが見つかりませんでした</div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen relative">
@@ -100,13 +148,15 @@ export default function MenuItemPage() {
           <p className="text-gray-300">{menuItem.description}</p>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            {menuItem.allergens.map((allergen) => (
-              <span
-                key={allergen}
-                className="text-xs bg-red-900/40 text-red-300 px-2 py-1 rounded-full border border-red-500/30"
-              >
-                {allergen}
-              </span>
+            {menuItem.allergens && menuItem.allergens.map((allergen) => (
+              allergen && (
+                <span
+                  key={allergen}
+                  className="text-xs bg-red-900/40 text-red-300 px-2 py-1 rounded-full border border-red-500/30"
+                >
+                  {allergen}
+                </span>
+              )
             ))}
           </div>
         </div>
