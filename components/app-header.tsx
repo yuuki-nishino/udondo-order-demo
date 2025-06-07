@@ -4,6 +4,7 @@ import Link from "next/link"
 import { ChevronLeft, ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
+import { useCart } from "@/hooks/use-cart"
 
 interface AppHeaderProps {
   title: string
@@ -14,6 +15,8 @@ interface AppHeaderProps {
 
 export function AppHeader({ title, showBack = true, showCart = false, backUrl }: AppHeaderProps) {
   const router = useRouter()
+  const { getItemCount } = useCart()
+  const itemCount = getItemCount()
 
   const handleBack = () => {
     if (backUrl) {
@@ -50,9 +53,11 @@ export function AppHeader({ title, showBack = true, showCart = false, backUrl }:
               className="text-purple-300 hover:text-purple-200 hover:bg-purple-950/20 relative"
             >
               <ShoppingCart className="w-6 h-6" />
-              <span className="absolute -top-1 -right-1 bg-purple-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                3
-              </span>
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-purple-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {itemCount}
+                </span>
+              )}
               <span className="sr-only">カートを見る</span>
             </Button>
           </Link>

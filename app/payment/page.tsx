@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { Separator } from "@/components/ui/separator"
+import { useCart } from "@/hooks/use-cart"
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -22,37 +23,28 @@ export default function PaymentPage() {
   const [paymentMethod, setPaymentMethod] = useState("credit-card");
   const [isLoading, setIsLoading] = useState(false);
   
-  // カートアイテムのモックデータ（実際のアプリではカート状態から取得する）
-  const cartItems = [
-    {
-      id: 1,
-      name: "宇宙特製うどん",
-      price: 980,
-      quantity: 1,
-      options: ["麺の硬さ：普通", "トッピング：温泉卵(+¥100)"],
-      image: "/placeholder.svg?height=100&width=100",
-    },
-    {
-      id: 7,
-      name: "海老天（2本）",
-      price: 480,
-      quantity: 2,
-      options: [],
-      image: "/placeholder.svg?height=100&width=100",
-    },
-    {
-      id: 11,
-      name: "緑茶",
-      price: 180,
-      quantity: 1,
-      options: [],
-      image: "/placeholder.svg?height=100&width=100",
-    },
-  ];
+  // 実際のカートデータを取得
+  const { items, subtotal, tax, total, clearCart } = useCart();
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const tax = Math.floor(subtotal * 0.1);
-  const total = subtotal + tax;
+  // カートが空の場合の表示
+  if (items.length === 0) {
+    return (
+      <main className="min-h-screen relative">
+        <SpaceBackground />
+        <AppHeader title="お支払い" />
+        <div className="container max-w-md mx-auto p-4 pt-20 pb-32 z-10 relative">
+          <div className="text-center py-20">
+            <div className="text-gray-400 mb-6">カートが空です</div>
+            <Link href="/menu">
+              <Button className="bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800">
+                メニューを見る
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
   
   // 支払い処理と注文登録
   const handlePayment = async () => {
@@ -68,6 +60,21 @@ export default function PaymentPage() {
       const orderNumberPrefix = `${storeId}-${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}`;
       const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
       const orderNumber = `${orderNumberPrefix}-${randomSuffix}`;
+      
+      // 注文詳細をローカルストレージに保存（注文完了画面で使用）
+      const orderDetails = {
+        items: items,
+        subtotal: subtotal,
+        tax: tax,
+        total: total,
+        orderNumber: orderNumber,
+        orderAt: now.toISOString(),
+        storeId: storeId,
+        eatType: eatType,
+        paymentMethod: paymentMethod
+      };
+      
+      localStorage.setItem('lastOrderDetails', JSON.stringify(orderDetails));
       
       // ORDERテーブルに注文データを挿入
       const { data, error } = await supabase
@@ -89,6 +96,9 @@ export default function PaymentPage() {
       }
       
       console.log('注文が完了しました:', data);
+      
+      // カートをクリア
+      clearCart();
       
       // 注文完了ページに遷移
       router.push('/order-complete');
@@ -201,22 +211,27 @@ export default function PaymentPage() {
             <h3 className="text-lg font-medium mb-4">注文内容</h3>
 
             <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-300">宇宙特製うどん × 1</span>
-                <span className="text-white">¥980</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-300">海老天（2本） × 2</span>
-                <span className="text-white">¥960</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-300">緑茶 × 1</span>
-                <span className="text-white">¥180</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-300">トッピング：温泉卵</span>
-                <span className="text-white">¥100</span>
-              </div>
+              {items.map((item) => (
+                <div key={item.id}>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">
+                      {item.name} × {item.quantity}
+                    </span>
+                    <span className="text-white">
+                      ¥{(item.price * item.quantity).toLocaleString()}
+                    </span>
+                  </div>
+                  {item.options.length > 0 && (
+                    <div className="ml-2">
+                      {item.options.map((option, index) => (
+                        <div key={index} className="flex justify-between text-sm">
+                          <span className="text-gray-400">{option}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
 
               <Separator className="my-3 bg-purple-500/20" />
 

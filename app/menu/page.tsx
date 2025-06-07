@@ -11,6 +11,8 @@ import Link from "next/link"
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
+import { useCart } from "@/hooks/use-cart"
+import { useToast } from "@/hooks/use-toast"
 
 // メニュー項目の型定義
 type MenuItem = {
@@ -35,9 +37,32 @@ export default function MenuPage() {
   const searchParams = useSearchParams()
   const [menuItems, setMenuItems] = useState<Record<string, MenuItem[]>>({})
   const [loading, setLoading] = useState(true)
+  const { addItem, getItemCount } = useCart()
+  const { toast } = useToast()
   
   // 店舗選択画面に戻るためのURL
   const backUrl = '/stores'
+
+  // カートにアイテムを追加する関数
+  const handleAddToCart = (item: MenuItem, event: React.MouseEvent) => {
+    event.preventDefault() // Linkのナビゲーションを防ぐ
+    event.stopPropagation()
+    
+    addItem({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      options: [],
+      image: item.image,
+      category: item.category
+    })
+    
+    toast({
+      title: "カートに追加しました",
+      description: `${item.name}をカートに追加しました`,
+      duration: 2000,
+    })
+  }
 
   // Supabaseからメニューデータを取得
   useEffect(() => {
@@ -139,6 +164,7 @@ export default function MenuPage() {
                               <Button
                                 size="sm"
                                 className="bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800"
+                                onClick={(e) => handleAddToCart(item, e)}
                               >
                                 <Plus className="w-4 h-4 mr-1" />
                                 カートに追加
@@ -171,7 +197,7 @@ export default function MenuPage() {
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-black/80 backdrop-blur-md border-t border-purple-500/20 z-20">
         <Link href="/cart">
           <Button className="w-full py-6 bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800">
-            カートを見る
+            カートを見る {getItemCount() > 0 && `(${getItemCount()})`}
           </Button>
         </Link>
       </div>

@@ -23,16 +23,49 @@ type OrderData = {
   storeName?: string;
 };
 
+// 注文詳細の型定義
+type OrderDetails = {
+  items: Array<{
+    id: number;
+    name: string;
+    price: number;
+    quantity: number;
+    options: string[];
+    image?: string;
+    category: string;
+  }>;
+  subtotal: number;
+  tax: number;
+  total: number;
+  orderNumber: string;
+  orderAt: string;
+  storeId: string;
+  eatType: string;
+  paymentMethod: string;
+};
+
 export default function OrderCompletePage() {
   const [order, setOrder] = useState<OrderData | null>(null);
+  const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    async function fetchLatestOrder() {
+    async function fetchOrderData() {
       setLoading(true);
-      const supabase = createClient();
       
       try {
+        // ローカルストレージから注文詳細を取得
+        const savedOrderDetails = localStorage.getItem('lastOrderDetails');
+        if (savedOrderDetails) {
+          const parsedDetails = JSON.parse(savedOrderDetails) as OrderDetails;
+          setOrderDetails(parsedDetails);
+          
+          // 使用後にローカルストレージから削除
+          localStorage.removeItem('lastOrderDetails');
+        }
+        
+        const supabase = createClient();
+        
         // 最新の注文を取得
         const { data: orderData, error: orderError } = await supabase
           .from('ORDER')
@@ -71,37 +104,8 @@ export default function OrderCompletePage() {
       }
     }
     
-    fetchLatestOrder();
+    fetchOrderData();
   }, []);
-  
-  // カートアイテムのモックデータ（実際のアプリではカート状態や注文詳細から取得する）
-  const cartItems = [
-    {
-      id: 1,
-      name: "宇宙特製うどん",
-      price: 980,
-      quantity: 1,
-      options: ["麺の硬さ：普通", "トッピング：温泉卵(+¥100)"],
-    },
-    {
-      id: 7,
-      name: "海老天（2本）",
-      price: 480,
-      quantity: 2,
-      options: [],
-    },
-    {
-      id: 11,
-      name: "緑茶",
-      price: 180,
-      quantity: 1,
-      options: [],
-    },
-  ];
-
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const tax = Math.floor(subtotal * 0.1);
-  const total = subtotal + tax;
   
   // 日付をフォーマットする関数
   const formatDate = (dateString: string) => {
@@ -112,8 +116,12 @@ export default function OrderCompletePage() {
   // 食事方法の表示名
   const getEatStyleName = (eatStyle: string) => {
     switch (eatStyle) {
-      case 'eatIn': return '店内飲食';
-      case 'takeout': return 'テイクアウト';
+      case 'eatIn': 
+      case 'eat-in': 
+        return '店内飲食';
+      case 'takeout': 
+      case 'take-out': 
+        return 'テイクアウト';
       default: return eatStyle;
     }
   };
@@ -138,14 +146,14 @@ export default function OrderCompletePage() {
           <div className="flex justify-center items-center h-60">
             <div className="text-purple-300">注文情報を読み込み中...</div>
           </div>
-        ) : order ? (
+        ) : (order || orderDetails) ? (
           <>
             <div className="flex flex-col items-center justify-center mb-8">
               <div className="w-16 h-16 flex items-center justify-center bg-green-800/30 rounded-full mb-4">
                 <CheckCircle2 className="w-10 h-10 text-green-400" />
               </div>
               <h1 className="text-2xl font-bold text-white">ご注文ありがとうございます</h1>
-              <p className="text-gray-300 mt-2">注文番号: {order.numbered}</p>
+              <p className="text-gray-300 mt-2">注文番号: {orderDetails?.orderNumber || order?.numbered}</p>
             </div>
 
             <Card className="bg-black/60 border-purple-500/30 backdrop-blur-md mb-6">
@@ -155,47 +163,83 @@ export default function OrderCompletePage() {
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between">
                     <span className="text-gray-300">店舗</span>
-                    <span className="text-white">{order.storeName}</span>
+                    <span className="text-white">{order?.storeName || '店舗情報取得中...'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">注文日時</span>
-                    <span className="text-white">{formatDate(order.orderAt)}</span>
+                    <span className="text-white">
+                      {orderDetails?.orderAt ? formatDate(orderDetails.orderAt) : 
+                       order?.orderAt ? formatDate(order.orderAt) : '取得中...'}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">食事方法</span>
-                    <span className="text-white">{getEatStyleName(order.eat_style)}</span>
+                    <span className="text-white">
+                      {orderDetails?.eatType ? getEatStyleName(orderDetails.eatType) : 
+                       order?.eat_style ? getEatStyleName(order.eat_style) : '取得中...'}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">支払い方法</span>
-                    <span className="text-white">{getPaymentMethodName(order.payment_method)}</span>
+                    <span className="text-white">
+                      {orderDetails?.paymentMethod ? getPaymentMethodName(orderDetails.paymentMethod) : 
+                       order?.payment_method ? getPaymentMethodName(order.payment_method) : '取得中...'}
+                    </span>
                   </div>
                 </div>
 
                 <Separator className="my-4 bg-purple-500/20" />
 
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-300">宇宙特製うどん × 1</span>
-                    <span className="text-white">¥980</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-300">海老天（2本） × 2</span>
-                    <span className="text-white">¥960</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-300">緑茶 × 1</span>
-                    <span className="text-white">¥180</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-300">トッピング：温泉卵</span>
-                    <span className="text-white">¥100</span>
-                  </div>
+                  {orderDetails?.items ? (
+                    // 実際の注文内容を表示
+                    orderDetails.items.map((item) => (
+                      <div key={item.id}>
+                        <div className="flex justify-between">
+                          <span className="text-gray-300">
+                            {item.name} × {item.quantity}
+                          </span>
+                          <span className="text-white">
+                            ¥{(item.price * item.quantity).toLocaleString()}
+                          </span>
+                        </div>
+                        {item.options.length > 0 && (
+                          <div className="ml-2">
+                            {item.options.map((option, index) => (
+                              <div key={index} className="text-sm text-gray-400">
+                                {option}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    // データが取得できない場合のフォールバック
+                    <div className="text-gray-400">注文内容を取得中...</div>
+                  )}
 
                   <Separator className="my-3 bg-purple-500/20" />
 
+                  {orderDetails && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">小計</span>
+                        <span className="text-white">¥{orderDetails.subtotal.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">消費税（10%）</span>
+                        <span className="text-white">¥{orderDetails.tax.toLocaleString()}</span>
+                      </div>
+                      <Separator className="my-3 bg-purple-500/20" />
+                    </>
+                  )}
+
                   <div className="flex justify-between">
                     <span className="text-lg font-medium text-white">合計</span>
-                    <span className="text-lg font-bold text-white">¥{order.totalPrice.toLocaleString()}</span>
+                    <span className="text-lg font-bold text-white">
+                      ¥{(orderDetails?.total || order?.totalPrice || 0).toLocaleString()}
+                    </span>
                   </div>
                 </div>
               </CardContent>

@@ -11,47 +11,65 @@ import Image from "next/image"
 import Link from "next/link"
 import { Separator } from "@/components/ui/separator"
 import { useSearchParams } from "next/navigation"
+import { useCart } from "@/hooks/use-cart"
+import { useToast } from "@/hooks/use-toast"
+import { useState } from "react"
 
 export default function CartPage() {
   const searchParams = useSearchParams()
   const storeId = searchParams.get('store')
   const eatType = searchParams.get('eatType')
+  const { items, subtotal, tax, total, updateQuantity, removeItem } = useCart()
+  const { toast } = useToast()
+  const [selectedEatType, setSelectedEatType] = useState<string>(eatType || "eat-in")
   
   // 戻るURL設定（メニューページに戻る）
   const backUrl = storeId && eatType 
     ? `/menu?store=${storeId}&eatType=${eatType}` 
     : '/menu'
 
-  const cartItems = [
-    {
-      id: 1,
-      name: "宇宙特製うどん",
-      price: 980,
-      quantity: 1,
-      options: ["麺の硬さ：普通", "トッピング：温泉卵(+¥100)"],
-      image: "/placeholder.svg?height=100&width=100",
-    },
-    {
-      id: 7,
-      name: "海老天（2本）",
-      price: 480,
-      quantity: 2,
-      options: [],
-      image: "/placeholder.svg?height=100&width=100",
-    },
-    {
-      id: 11,
-      name: "緑茶",
-      price: 180,
-      quantity: 1,
-      options: [],
-      image: "/placeholder.svg?height=100&width=100",
-    },
-  ]
+  // 数量を更新する関数
+  const handleUpdateQuantity = (id: number, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      handleRemoveItem(id)
+      return
+    }
+    updateQuantity(id, newQuantity)
+  }
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const tax = Math.floor(subtotal * 0.1)
-  const total = subtotal + tax
+  // アイテムを削除する関数
+  const handleRemoveItem = (id: number) => {
+    const item = items.find(item => item.id === id)
+    removeItem(id)
+    if (item) {
+      toast({
+        title: "カートから削除しました",
+        description: `${item.name}をカートから削除しました`,
+        duration: 2000,
+      })
+    }
+  }
+
+  // カートが空の場合の表示
+  if (items.length === 0) {
+    return (
+      <main className="min-h-screen relative">
+        <SpaceBackground />
+        <AppHeader title="カート" backUrl={backUrl} />
+
+        <div className="container max-w-md mx-auto p-4 pt-20 pb-24 z-10 relative">
+          <div className="text-center py-20">
+            <div className="text-gray-400 mb-6">カートは空です</div>
+            <Link href="/menu">
+              <Button className="bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800">
+                メニューを見る
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen relative">
@@ -60,7 +78,7 @@ export default function CartPage() {
 
       <div className="container max-w-md mx-auto p-4 pt-20 pb-48 z-10 relative">
         <div className="space-y-4 mb-6">
-          {cartItems.map((item) => (
+          {items.map((item) => (
             <Card key={item.id} className="bg-black/60 border-purple-500/30 backdrop-blur-md overflow-hidden">
               <CardContent className="p-4">
                 <div className="flex gap-4">
@@ -80,6 +98,7 @@ export default function CartPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-950/20"
+                        onClick={() => handleRemoveItem(item.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">削除</span>
@@ -97,12 +116,22 @@ export default function CartPage() {
                     )}
 
                     <div className="flex items-center gap-3">
-                      <Button variant="outline" size="icon" className="h-7 w-7 rounded-full border-purple-500/50">
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-7 w-7 rounded-full border-purple-500/50"
+                        onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                      >
                         <Minus className="h-3 w-3" />
                         <span className="sr-only">減らす</span>
                       </Button>
                       <span className="text-sm font-medium">{item.quantity}</span>
-                      <Button variant="outline" size="icon" className="h-7 w-7 rounded-full border-purple-500/50">
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-7 w-7 rounded-full border-purple-500/50"
+                        onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                      >
                         <Plus className="h-3 w-3" />
                         <span className="sr-only">増やす</span>
                       </Button>
@@ -117,7 +146,7 @@ export default function CartPage() {
         <Card className="bg-black/60 border-purple-500/30 backdrop-blur-md mb-6">
           <CardContent className="p-4">
             <h3 className="text-lg font-medium mb-4">食事方法</h3>
-            <RadioGroup defaultValue="eat-in">
+            <RadioGroup value={selectedEatType} onValueChange={setSelectedEatType}>
               <div className="flex items-center space-x-2 mb-3">
                 <RadioGroupItem id="eat-in" value="eat-in" />
                 <Label htmlFor="eat-in" className="text-gray-300">
@@ -177,11 +206,22 @@ export default function CartPage() {
             <span className="text-gray-300">合計</span>
             <span className="text-xl font-bold text-white">¥{total.toLocaleString()}</span>
           </div>
-          <Link href="/payment">
-            <Button className="w-full py-6 bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800">
-              注文を確定する
-            </Button>
-          </Link>
+          
+          <div className="flex gap-3">
+            <Link href="/menu" className="flex-1">
+              <Button 
+                variant="outline"
+                className="w-full py-6 border-purple-500/50 hover:bg-purple-900/20"
+              >
+                追加注文
+              </Button>
+            </Link>
+            <Link href="/payment" className="flex-1">
+              <Button className="w-full py-6 bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800">
+                注文を確定する
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </main>

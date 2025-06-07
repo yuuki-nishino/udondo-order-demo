@@ -9,10 +9,11 @@ import { SpaceBackground } from "@/components/space-background"
 import { AppHeader } from "@/components/app-header"
 import { Minus, Plus, Star } from "lucide-react"
 import Image from "next/image"
-import Link from "next/link"
-import { useParams, useSearchParams } from "next/navigation"
+import { useParams, useSearchParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
+import { useCart } from "@/hooks/use-cart"
+import { useToast } from "@/hooks/use-toast"
 
 // メニュー項目の型定義
 type MenuItem = {
@@ -26,13 +27,37 @@ type MenuItem = {
   allergens?: string[];
 };
 
+// トッピングの型定義
+type Topping = {
+  id: string;
+  name: string;
+  price: number;
+  checked: boolean;
+};
+
 export default function MenuItemPage() {
   // クライアントサイドでパラメータを取得
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const id = params.id as string;
   const [menuItem, setMenuItem] = useState<MenuItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [quantity, setQuantity] = useState(1);
+  const [selectedHardness, setSelectedHardness] = useState("normal");
+  const [selectedToppings, setSelectedToppings] = useState<Topping[]>([
+    { id: "topping-1", name: "旨い煮豚", price: 400, checked: false },
+    { id: "topping-2", name: "大阪スジ煮", price: 450, checked: false },
+    { id: "topping-3", name: "麹漬け旨煮鶏", price: 380, checked: false },
+    { id: "topping-4", name: "ウドンドの覚醒（激辛ウマすりだね）", price: 180, checked: false },
+    { id: "topping-5", name: "生たまご", price: 50, checked: false },
+    { id: "topping-6", name: "追加ねぎ", price: 20, checked: false },
+    { id: "topping-7", name: "追加麺（1玉）", price: 230, checked: false },
+  ]);
+  const [remarks, setRemarks] = useState("");
+  
+  const { addItem } = useCart();
+  const { toast } = useToast();
   
   // URLクエリパラメータを保持して戻る
   const storeId = searchParams.get('store');
@@ -40,6 +65,71 @@ export default function MenuItemPage() {
   const backUrl = storeId && eatType 
     ? `/menu?store=${storeId}&eatType=${eatType}` 
     : '/menu';
+
+  // 数量を変更する関数
+  const handleQuantityChange = (delta: number) => {
+    setQuantity(prev => Math.max(1, prev + delta));
+  };
+
+  // トッピングの選択状態を変更する関数
+  const handleToppingChange = (toppingId: string, checked: boolean) => {
+    setSelectedToppings(prev => 
+      prev.map(topping => 
+        topping.id === toppingId 
+          ? { ...topping, checked }
+          : topping
+      )
+    );
+  };
+
+  // 合計金額を計算する関数
+  const calculateTotal = () => {
+    if (!menuItem) return 0;
+    const basePrice = menuItem.price;
+    const toppingsPrice = selectedToppings
+      .filter(topping => topping.checked)
+      .reduce((sum, topping) => sum + topping.price, 0);
+    return (basePrice + toppingsPrice) * quantity;
+  };
+
+  // カートに追加する関数
+  const handleAddToCart = () => {
+    if (!menuItem) return;
+
+    const selectedToppingNames = selectedToppings
+      .filter(topping => topping.checked)
+      .map(topping => topping.name);
+    
+    const options = [
+      `麺の硬さ：${selectedHardness === 'soft' ? 'やわらかめ' : selectedHardness === 'normal' ? '普通' : 'かため'}`,
+      ...selectedToppingNames.map(name => `トッピング：${name}`),
+      ...(remarks ? [`備考：${remarks}`] : [])
+    ];
+
+    const itemTotal = calculateTotal();
+    const basePrice = Math.floor(itemTotal / quantity); // 1個あたりの価格（トッピング込み）
+
+    // 指定された数量分だけカートに追加
+    for (let i = 0; i < quantity; i++) {
+      addItem({
+        id: menuItem.id + (Date.now() + i), // ユニークなIDを生成（同じメニューでもオプションが違う場合は別アイテムとして扱う）
+        name: menuItem.name,
+        price: basePrice,
+        options: options,
+        image: menuItem.image,
+        category: menuItem.category
+      });
+    }
+
+    toast({
+      title: "カートに追加しました",
+      description: `${menuItem.name} × ${quantity}をカートに追加しました`,
+      duration: 2000,
+    });
+
+    // カートページに遷移
+    router.push('/cart');
+  };
   
   // Supabaseからメニューデータを取得
   useEffect(() => {
@@ -97,7 +187,7 @@ export default function MenuItemPage() {
     return (
       <main className="min-h-screen relative">
         <SpaceBackground />
-        <AppHeader title="メニュー詳細" backUrl={backUrl} />
+        <AppHeader title="メニュー詳細" backUrl={backUrl} showCart={true} />
         <div className="container max-w-md mx-auto p-4 pt-20 pb-32 z-10 relative">
           <div className="flex justify-center items-center h-60">
             <div className="text-purple-300">メニューを読み込み中...</div>
@@ -111,7 +201,7 @@ export default function MenuItemPage() {
     return (
       <main className="min-h-screen relative">
         <SpaceBackground />
-        <AppHeader title="メニュー詳細" backUrl={backUrl} />
+        <AppHeader title="メニュー詳細" backUrl={backUrl} showCart={true} />
         <div className="container max-w-md mx-auto p-4 pt-20 pb-32 z-10 relative">
           <div className="flex justify-center items-center h-60">
             <div className="text-red-300">メニューが見つかりませんでした</div>
@@ -121,10 +211,12 @@ export default function MenuItemPage() {
     );
   }
 
+  const totalPrice = calculateTotal();
+
   return (
     <main className="min-h-screen relative">
       <SpaceBackground />
-      <AppHeader title="メニュー詳細" backUrl={backUrl} />
+      <AppHeader title="メニュー詳細" backUrl={backUrl} showCart={true} />
 
       <div className="container max-w-md mx-auto p-4 pt-20 pb-32 z-10 relative">
         <div className="w-full h-64 relative mb-6">
@@ -166,12 +258,23 @@ export default function MenuItemPage() {
             <div className="flex items-center justify-between mb-4">
               <span className="text-lg font-medium">数量</span>
               <div className="flex items-center gap-4">
-                <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-purple-500/50">
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="h-8 w-8 rounded-full border-purple-500/50"
+                  onClick={() => handleQuantityChange(-1)}
+                  disabled={quantity <= 1}
+                >
                   <Minus className="h-4 w-4" />
                   <span className="sr-only">減らす</span>
                 </Button>
-                <span className="text-lg font-medium">1</span>
-                <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-purple-500/50">
+                <span className="text-lg font-medium min-w-[2rem] text-center">{quantity}</span>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="h-8 w-8 rounded-full border-purple-500/50"
+                  onClick={() => handleQuantityChange(1)}
+                >
                   <Plus className="h-4 w-4" />
                   <span className="sr-only">増やす</span>
                 </Button>
@@ -183,7 +286,7 @@ export default function MenuItemPage() {
         <Card className="bg-black/60 border-purple-500/30 backdrop-blur-md mb-6">
           <CardContent className="p-4">
             <h3 className="text-lg font-medium mb-4">麺の硬さ</h3>
-            <RadioGroup defaultValue="normal">
+            <RadioGroup value={selectedHardness} onValueChange={setSelectedHardness}>
               <div className="flex items-center space-x-2 mb-3">
                 <RadioGroupItem id="soft" value="soft" />
                 <Label htmlFor="soft" className="text-gray-300">
@@ -211,75 +314,21 @@ export default function MenuItemPage() {
             <h3 className="text-lg font-medium mb-4">トッピング</h3>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="topping-1" />
-                  <Label htmlFor="topping-1" className="text-gray-300">
-                    旨い煮豚
-                  </Label>
+              {selectedToppings.map((topping) => (
+                <div key={topping.id} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id={topping.id} 
+                      checked={topping.checked}
+                      onCheckedChange={(checked) => handleToppingChange(topping.id, checked as boolean)}
+                    />
+                    <Label htmlFor={topping.id} className="text-gray-300">
+                      {topping.name}
+                    </Label>
+                  </div>
+                  <span className="text-gray-400">+¥{topping.price}</span>
                 </div>
-                <span className="text-gray-400">+¥400</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="topping-2" />
-                  <Label htmlFor="topping-2" className="text-gray-300">
-                    大阪スジ煮
-                  </Label>
-                </div>
-                <span className="text-gray-400">+¥450</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="topping-3" />
-                  <Label htmlFor="topping-3" className="text-gray-300">
-                    麹漬け旨煮鶏
-                  </Label>
-                </div>
-                <span className="text-gray-400">+¥380</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="topping-4" />
-                  <Label htmlFor="topping-4" className="text-gray-300">
-                    ウドンドの覚醒（激辛ウマすりだね）
-                  </Label>
-                </div>
-                <span className="text-gray-400">+¥180</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="topping-5" />
-                  <Label htmlFor="topping-5" className="text-gray-300">
-                    生たまご
-                  </Label>
-                </div>
-                <span className="text-gray-400">+¥50</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="topping-6" />
-                  <Label htmlFor="topping-6" className="text-gray-300">
-                    追加ねぎ
-                  </Label>
-                </div>
-                <span className="text-gray-400">+¥20</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="topping-7" />
-                  <Label htmlFor="topping-7" className="text-gray-300">
-                    追加麺（1玉）
-                  </Label>
-                </div>
-                <span className="text-gray-400">+¥230</span>
-              </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -289,7 +338,9 @@ export default function MenuItemPage() {
             <h3 className="text-lg font-medium mb-4">備考</h3>
             <textarea
               placeholder="アレルギーや特別なリクエストがあればご記入ください"
-              className="w-full h-24 bg-black/40 border border-purple-500/30 rounded-md p-3 text-gray-300 placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              className="w-full h-24 bg-black/40 border border-purple-500/30 rounded-md p-3 text-gray-300 placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-none"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
             />
           </CardContent>
         </Card>
@@ -299,13 +350,14 @@ export default function MenuItemPage() {
         <div className="container max-w-md mx-auto">
           <div className="flex justify-between items-center mb-3">
             <span className="text-gray-300">合計</span>
-            <span className="text-xl font-bold text-white">¥{menuItem.price.toLocaleString()}</span>
+            <span className="text-xl font-bold text-white">¥{totalPrice.toLocaleString()}</span>
           </div>
-          <Link href="/cart">
-            <Button className="w-full py-6 bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800">
-              カートに追加
-            </Button>
-          </Link>
+          <Button 
+            className="w-full py-6 bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800"
+            onClick={handleAddToCart}
+          >
+            カートに追加 ({quantity}個)
+          </Button>
         </div>
       </div>
     </main>
