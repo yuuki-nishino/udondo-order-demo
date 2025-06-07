@@ -9,12 +9,13 @@ import { AppHeader } from "@/components/app-header"
 import { CreditCard, Smartphone, Wallet } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { Separator } from "@/components/ui/separator"
 import { useCart } from "@/hooks/use-cart"
 
-export default function PaymentPage() {
+// メイン決済コンテンツコンポーネント
+function PaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const storeId = searchParams.get('store') || "1"; // デフォルト店舗ID
@@ -210,31 +211,33 @@ export default function PaymentPage() {
           <CardContent className="p-4">
             <h3 className="text-lg font-medium mb-4">注文内容</h3>
 
-            <div className="space-y-2">
+            <div className="space-y-3 mb-4">
               {items.map((item) => (
-                <div key={item.id}>
-                  <div className="flex justify-between">
-                    <span className="text-gray-300">
-                      {item.name} × {item.quantity}
-                    </span>
-                    <span className="text-white">
-                      ¥{(item.price * item.quantity).toLocaleString()}
-                    </span>
+                <div key={item.id} className="flex justify-between items-center">
+                  <div className="flex-1">
+                    <p className="text-white">{item.name}</p>
+                    {item.options.length > 0 && (
+                      <div className="text-xs text-gray-400">
+                        {item.options.slice(0, 2).map((option, index) => (
+                          <p key={index}>{option}</p>
+                        ))}
+                        {item.options.length > 2 && (
+                          <p>+{item.options.length - 2}個のオプション</p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {item.options.length > 0 && (
-                    <div className="ml-2">
-                      {item.options.map((option, index) => (
-                        <div key={index} className="flex justify-between text-sm">
-                          <span className="text-gray-400">{option}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="text-right ml-4">
+                    <p className="text-white">¥{item.price.toLocaleString()}</p>
+                    <p className="text-gray-400 text-sm">x{item.quantity}</p>
+                  </div>
                 </div>
               ))}
+            </div>
 
-              <Separator className="my-3 bg-purple-500/20" />
+            <Separator className="my-4 bg-purple-500/20" />
 
+            <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-300">小計</span>
                 <span className="text-white">¥{subtotal.toLocaleString()}</span>
@@ -243,9 +246,7 @@ export default function PaymentPage() {
                 <span className="text-gray-300">消費税（10%）</span>
                 <span className="text-white">¥{tax.toLocaleString()}</span>
               </div>
-
               <Separator className="my-3 bg-purple-500/20" />
-
               <div className="flex justify-between">
                 <span className="text-lg font-medium text-white">合計</span>
                 <span className="text-lg font-bold text-white">¥{total.toLocaleString()}</span>
@@ -257,19 +258,34 @@ export default function PaymentPage() {
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-black/80 backdrop-blur-md border-t border-purple-500/20 z-20">
         <div className="container max-w-md mx-auto">
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-gray-300">合計</span>
-            <span className="text-xl font-bold text-white">¥{total.toLocaleString()}</span>
-          </div>
           <Button 
-            className="w-full py-6 bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800"
-            disabled={isLoading}
+            className="w-full py-6 bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handlePayment}
+            disabled={isLoading}
           >
-            {isLoading ? '処理中...' : '支払いを完了する'}
+            {isLoading ? "処理中..." : `お支払い（¥${total.toLocaleString()}）`}
           </Button>
         </div>
       </div>
     </main>
+  )
+}
+
+// メインエクスポートコンポーネント（Suspenseでラップ）
+export default function PaymentPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen relative">
+        <SpaceBackground />
+        <AppHeader title="お支払い" />
+        <div className="container max-w-md mx-auto p-4 pt-20 pb-32 z-10 relative">
+          <div className="flex justify-center items-center h-60">
+            <div className="text-purple-300">読み込み中...</div>
+          </div>
+        </div>
+      </main>
+    }>
+      <PaymentContent />
+    </Suspense>
   )
 }

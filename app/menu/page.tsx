@@ -9,7 +9,7 @@ import { Plus, Star } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useSearchParams } from 'next/navigation'
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useCart } from "@/hooks/use-cart"
 import { useToast } from "@/hooks/use-toast"
@@ -33,7 +33,8 @@ const categories = [
   { id: "drinks", name: "飲み物" },
 ]
 
-export default function MenuPage() {
+// メインメニューコンテンツコンポーネント
+function MenuContent() {
   const searchParams = useSearchParams()
   const [menuItems, setMenuItems] = useState<Record<string, MenuItem[]>>({})
   const [loading, setLoading] = useState(true)
@@ -202,5 +203,24 @@ export default function MenuPage() {
         </Link>
       </div>
     </main>
+  )
+}
+
+// メインエクスポートコンポーネント（Suspenseでラップ）
+export default function MenuPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen relative">
+        <SpaceBackground />
+        <AppHeader title="ウドンド メニュー" showCart={true} />
+        <div className="container max-w-md mx-auto p-4 pt-20 pb-32 z-10 relative">
+          <div className="flex justify-center items-center h-60">
+            <div className="text-purple-300">読み込み中...</div>
+          </div>
+        </div>
+      </main>
+    }>
+      <MenuContent />
+    </Suspense>
   )
 }

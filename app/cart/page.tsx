@@ -13,9 +13,10 @@ import { Separator } from "@/components/ui/separator"
 import { useSearchParams } from "next/navigation"
 import { useCart } from "@/hooks/use-cart"
 import { useToast } from "@/hooks/use-toast"
-import { useState } from "react"
+import { useState, Suspense } from "react"
 
-export default function CartPage() {
+// メインカートコンテンツコンポーネント
+function CartContent() {
   const searchParams = useSearchParams()
   const storeId = searchParams.get('store')
   const eatType = searchParams.get('eatType')
@@ -202,28 +203,35 @@ export default function CartPage() {
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-black/80 backdrop-blur-md border-t border-purple-500/20 z-20">
         <div className="container max-w-md mx-auto">
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-gray-300">合計</span>
-            <span className="text-xl font-bold text-white">¥{total.toLocaleString()}</span>
-          </div>
-          
-          <div className="flex gap-3">
-            <Link href="/menu" className="flex-1">
-              <Button 
-                variant="outline"
-                className="w-full py-6 border-purple-500/50 hover:bg-purple-900/20"
-              >
-                追加注文
-              </Button>
-            </Link>
-            <Link href="/payment" className="flex-1">
-              <Button className="w-full py-6 bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800">
-                注文を確定する
-              </Button>
-            </Link>
-          </div>
+          <Link 
+            href={`/payment?store=${storeId || ''}&eatType=${selectedEatType}&fromCart=true`}
+            className="block"
+          >
+            <Button className="w-full py-6 bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800">
+              決済に進む（¥{total.toLocaleString()}）
+            </Button>
+          </Link>
         </div>
       </div>
     </main>
+  )
+}
+
+// メインエクスポートコンポーネント（Suspenseでラップ）
+export default function CartPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen relative">
+        <SpaceBackground />
+        <AppHeader title="カート" />
+        <div className="container max-w-md mx-auto p-4 pt-20 pb-32 z-10 relative">
+          <div className="flex justify-center items-center h-60">
+            <div className="text-purple-300">読み込み中...</div>
+          </div>
+        </div>
+      </main>
+    }>
+      <CartContent />
+    </Suspense>
   )
 }
