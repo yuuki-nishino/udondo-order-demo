@@ -141,7 +141,7 @@ export default function MenuPage() {
               <TabsContent key={category.id} value={category.id} className="space-y-4 mt-0">
                 {menuItems[category.id]?.length > 0 ? (
                   menuItems[category.id].map((item) => (
-                    <Link href={`/menu/${item.id}`} key={item.id}>
+                    <Link href={`/menu-detail?id=${item.id}${searchParams.get('store') ? `&store=${searchParams.get('store')}` : ''}${searchParams.get('eatType') ? `&eatType=${searchParams.get('eatType')}` : ''}`} key={item.id}>
                       <Card className="bg-black/60 border-purple-500/30 backdrop-blur-md hover:bg-black/70 transition-colors cursor-pointer overflow-hidden">
                         <div className="flex">
                           <div className="flex-1">

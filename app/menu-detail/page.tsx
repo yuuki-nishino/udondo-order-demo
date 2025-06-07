@@ -9,8 +9,8 @@ import { SpaceBackground } from "@/components/space-background"
 import { AppHeader } from "@/components/app-header"
 import { Minus, Plus, Star } from "lucide-react"
 import Image from "next/image"
-import { useParams, useSearchParams, useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
+import { useEffect, useState, Suspense } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { useCart } from "@/hooks/use-cart"
 import { useToast } from "@/hooks/use-toast"
@@ -35,12 +35,11 @@ type Topping = {
   checked: boolean;
 };
 
-export default function MenuItemPage() {
-  // クライアントサイドでパラメータを取得
-  const params = useParams();
+// メインコンポーネント内部
+function MenuDetailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const id = params.id as string;
+  const id = searchParams.get('id');
   const [menuItem, setMenuItem] = useState<MenuItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -134,6 +133,11 @@ export default function MenuItemPage() {
   // Supabaseからメニューデータを取得
   useEffect(() => {
     async function fetchMenuItem() {
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       const supabase = createClient();
       
@@ -182,6 +186,21 @@ export default function MenuItemPage() {
     
     fetchMenuItem();
   }, [id]);
+
+  // IDが指定されていない場合
+  if (!id) {
+    return (
+      <main className="min-h-screen relative">
+        <SpaceBackground />
+        <AppHeader title="メニュー詳細" backUrl="/menu" showCart={true} />
+        <div className="container max-w-md mx-auto p-4 pt-20 pb-32 z-10 relative">
+          <div className="flex justify-center items-center h-60">
+            <div className="text-red-300">メニューIDが指定されていません</div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   if (loading) {
     return (
@@ -363,3 +382,22 @@ export default function MenuItemPage() {
     </main>
   )
 }
+
+// メインエクスポートコンポーネント（Suspenseでラップ）
+export default function MenuDetailPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen relative">
+        <SpaceBackground />
+        <AppHeader title="メニュー詳細" />
+        <div className="container max-w-md mx-auto p-4 pt-20 pb-32 z-10 relative">
+          <div className="flex justify-center items-center h-60">
+            <div className="text-purple-300">読み込み中...</div>
+          </div>
+        </div>
+      </main>
+    }>
+      <MenuDetailContent />
+    </Suspense>
+  )
+} 
