@@ -1,3 +1,5 @@
+"use client"
+
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -5,7 +7,8 @@ import { SpaceBackground } from "@/components/space-background"
 import { MapPin, Search, Navigation, Clock, CreditCard, User, UserCheck } from "lucide-react"
 import Link from "next/link"
 import { AppHeader } from "@/components/app-header"
-import { createClient } from "@/utils/supabase/server"
+import { createClient } from "@/utils/supabase/client"
+import { useEffect, useState } from "react"
 
 // Supabaseのテーブル構成に合わせたデータ型
 type StoreRecord = {
@@ -45,75 +48,78 @@ function mapStoreData(records: StoreRecord[]): Store[] {
   }))
 }
 
-async function getStores(): Promise<Store[]> {
-  const supabase = await createClient()
-  
-  try {
-    // STOREテーブルからすべてのデータを取得
-    const { data, error } = await supabase
-      .from('STORE')
-      .select('*')
-    
-    if (error) {
-      console.error('Storesデータの取得エラー:', error)
-      return []
-    }
-
-    console.log('取得したSTOREデータ:', data)
-    
-    // データが存在しない場合は空配列を返す
-    if (!data || data.length === 0) {
-      console.log('STOREテーブルにデータがありません')
-      return []
-    }
-    
-    // Supabaseから取得したデータをアプリケーションのデータ形式に変換
-    return mapStoreData(data)
-  } catch (e) {
-    console.error('データ取得中に例外が発生しました:', e)
-    return []
+// フォールバックストアデータ
+const fallbackStores: Store[] = [
+  {
+    id: 1,
+    name: "大阪蛍池店",
+    address: "大阪府豊中市蛍池2丁目5-13",
+    distance: "0.5km",
+    status: "営業中",
+    staffed: true,
+    hours: "24時間営業",
+    waitTime: "約10分",
+    paymentMethods: ["現金", "クレジットカード", "電子マネー", "QRコード決済"]
+  },
+  {
+    id: 2,
+    name: "大阪中之島店",
+    address: "大阪府大阪市北区中之島1丁目1-1",
+    distance: "13km",
+    status: "営業中",
+    staffed: false,
+    hours: "7:00 - 23:00",
+    waitTime: "約15分",
+    paymentMethods: ["現金", "クレジットカード", "QRコード決済"]
+  },
+  {
+    id: 3,
+    name: "富士吉田店",
+    address: "山梨県富士吉田市大和田1丁目1-1",
+    distance: "420km",
+    status: "営業中",
+    staffed: true,
+    hours: "8:30 - 22:30",
+    waitTime: "約0分",
+    paymentMethods: ["現金のみ"]
   }
-}
+]
 
-export default async function StoresPage() {
-  const stores = await getStores()
+export default function StoresPage() {
+  const [stores, setStores] = useState<Store[]>(fallbackStores)
+  const [loading, setLoading] = useState(true)
 
-  // 店舗データが存在しない場合のフォールバックデータ
-  const fallbackStores: Store[] = stores.length > 0 ? stores : [
-    {
-      id: 1,
-      name: "大阪蛍池店",
-      address: "大阪府豊中市蛍池2丁目5-13",
-      distance: "0.5km",
-      status: "営業中",
-      staffed: true,
-      hours: "24時間営業",
-      waitTime: "約10分",
-      paymentMethods: ["現金", "クレジットカード", "電子マネー", "QRコード決済"]
-    },
-    {
-      id: 2,
-      name: "大阪中之島店",
-      address: "大阪府大阪市北区中之島1丁目1-1",
-      distance: "13km",
-      status: "営業中",
-      staffed: false,
-      hours: "7:00 - 23:00",
-      waitTime: "約15分",
-      paymentMethods: ["現金", "クレジットカード", "QRコード決済"]
-    },
-    {
-      id: 3,
-      name: "富士吉田店",
-      address: "山梨県富士吉田市大和田1丁目1-1",
-      distance: "420km",
-      status: "営業中",
-      staffed: true,
-      hours: "8:30 - 22:30",
-      waitTime: "約0分",
-      paymentMethods: ["現金のみ"]
+  useEffect(() => {
+    async function getStores() {
+      setLoading(true)
+      const supabase = createClient()
+      
+      try {
+        // STOREテーブルからすべてのデータを取得
+        const { data, error } = await supabase
+          .from('STORE')
+          .select('*')
+        
+        if (error) {
+          console.error('Storesデータの取得エラー:', error)
+          return
+        }
+
+        console.log('取得したSTOREデータ:', data)
+        
+        // データが存在する場合は使用、そうでなければフォールバックデータを使用
+        if (data && data.length > 0) {
+          setStores(mapStoreData(data))
+        }
+      } catch (e) {
+        console.error('データ取得中に例外が発生しました:', e)
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+
+    getStores()
+  }, [])
 
   return (
     <main className="min-h-screen relative">
@@ -140,75 +146,82 @@ export default async function StoresPage() {
           </Button>
         </div>
 
-        <div className="space-y-4">
-          {fallbackStores.map((store) => (
-            <Card key={store.id} className="bg-black/60 border-purple-500/30 backdrop-blur-md hover:bg-black/70 transition-colors cursor-pointer">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-xl text-white">{store.name}</CardTitle>
-                  <span className="text-sm px-2 py-1 rounded-full bg-green-900/60 text-green-300">
-                    {store.status}
-                  </span>
-                </div>
-                <CardDescription className="flex items-center text-gray-400">
-                  <MapPin className="w-4 h-4 mr-1 inline" />
-                  {store.address}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pb-2 text-sm text-gray-300">
-                <p>営業時間: {store.hours}</p>
-                <div className="flex items-center my-1">
-                  {store.staffed ? (
-                    <div className="flex items-center text-teal-300">
-                      <UserCheck className="w-4 h-4 mr-1" />
-                      <span>現在スタッフ対応可</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-amber-300">
-                      <User className="w-4 h-4 mr-1" />
-                      <span>現在無人営業中</span>
-                    </div>
-                  )}
-                </div>
-                <p>現在の待ち時間: {store.waitTime}</p>
-                <div className="mt-2">
-                  <div className="flex items-center mb-1">
-                    <CreditCard className="w-4 h-4 mr-1 text-purple-300" />
-                    <span className="text-purple-200 font-medium">支払い方法</span>
+        {loading ? (
+          <div className="flex justify-center items-center h-60">
+            <div className="text-purple-300">店舗情報を読み込み中...</div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {stores.map((store) => (
+              <Card key={store.id} className="bg-black/60 border-purple-500/30 backdrop-blur-md hover:bg-black/70 transition-colors cursor-pointer">
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-start">
+                    <CardTitle className="text-xl text-white">{store.name}</CardTitle>
+                    <span className="text-sm px-2 py-1 rounded-full bg-green-900/60 text-green-300">
+                      {store.status}
+                    </span>
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    {store.paymentMethods.map((method, index) => (
-                      <span key={index} className="text-xs px-2 py-1 rounded-full bg-indigo-900/60 text-indigo-300">
-                        {method}
-                      </span>
-                    ))}
+                  <CardDescription className="flex items-center text-gray-400">
+                    <MapPin className="w-4 h-4 mr-1 inline" />
+                    {store.address}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pb-2 text-sm text-gray-300">
+                  <p>営業時間: {store.hours}</p>
+                  <div className="flex items-center my-1">
+                    {store.staffed ? (
+                      <div className="flex items-center text-teal-300">
+                        <UserCheck className="w-4 h-4 mr-1" />
+                        <span>現在スタッフ対応可</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center text-amber-300">
+                        <User className="w-4 h-4 mr-1" />
+                        <span>現在無人営業中</span>
+                      </div>
+                    )}
                   </div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-between pt-0">
-                <span className="text-sm text-purple-300">距離: {store.distance}</span>
-                <div className="flex gap-2">
-                  <Link href={`/menu?store=${store.id}&eatType=takeout`}>
-                    <Button
-                      size="sm"
-                      className="bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800"
-                    >
-                      テイクアウト
-                    </Button>
-                  </Link>
-                  <Link href={`/menu?store=${store.id}&eatType=eatIn`}>
-                    <Button
-                      size="sm"
-                      className="bg-gradient-to-r from-indigo-700 to-blue-900 hover:from-indigo-600 hover:to-blue-800"
-                    >
-                      イートイン
-                    </Button>
-                  </Link>
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+                  <p>現在の待ち時間: {store.waitTime}</p>
+                  <div className="mt-2">
+                    <div className="flex items-center mb-1">
+                      <CreditCard className="w-4 h-4 mr-1 text-purple-300" />
+                      <span className="text-purple-200 font-medium">支払い方法</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {store.paymentMethods.map((method, index) => (
+                        <span key={index} className="text-xs px-2 py-1 rounded-full bg-indigo-900/60 text-indigo-300">
+                          {method}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex justify-between pt-0">
+                  <span className="text-sm text-purple-300">距離: {store.distance}</span>
+                  <div className="flex gap-2">
+                    <Link href={`/menu?store=${store.id}&eatType=takeout`}>
+                      <Button
+                        size="sm"
+                        className="bg-gradient-to-r from-purple-700 to-indigo-900 hover:from-purple-600 hover:to-indigo-800"
+                      >
+                        テイクアウト
+                      </Button>
+                    </Link>
+                    <Link href={`/menu?store=${store.id}&eatType=eatIn`}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-purple-500/50 text-purple-300 hover:bg-purple-900/20"
+                      >
+                        店内飲食
+                      </Button>
+                    </Link>
+                  </div>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   )
