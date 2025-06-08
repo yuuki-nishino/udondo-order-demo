@@ -10,7 +10,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useState, Suspense } from "react"
-import { createClient } from "@/utils/supabase/client"
+// import { createClient } from "@/utils/supabase/client"
 import { useCart } from "@/hooks/use-cart"
 import { useToast } from "@/hooks/use-toast"
 
@@ -24,6 +24,23 @@ type MenuItem = {
   image?: string;
   popular?: boolean;
 }
+
+// ダミーメニューデータ（提供されたデータに基づく）
+const dummyMenuData: MenuItem[] = [
+  { id: 1, name: "かけウドンド", description: "シンプルながらも深い味わいのかけウドンド", category: "udondo", price: 550, popular: true },
+  { id: 2, name: "かけ油ウドンド", description: "特製の油が香る、風味豊かなウドンド", category: "udondo", price: 550 },
+  { id: 3, name: "みつか坊主のエビ味噌咖喱ウドンド", description: "みつか坊主特製のエビ味噌咖喱と絶妙に絡むウドンド", category: "udondo", price: 730, popular: true },
+  { id: 4, name: "旨い煮豚", description: "じっくり煮込んだ旨味たっぷりの煮豚", category: "toppings", price: 400, popular: true },
+  { id: 5, name: "大阪スジ煮", description: "大阪風に仕上げた柔らかスジ煮込み", category: "toppings", price: 450 },
+  { id: 6, name: "麹漬け旨煮鶏", description: "麹に漬け込んだ柔らかジューシーな鶏肉", category: "toppings", price: 380 },
+  { id: 7, name: "ウドンドの覚醒（激辛ウマすりだね）", description: "激辛好きにはたまらない特製すりだね", category: "toppings", price: 180 },
+  { id: 8, name: "生たまご", description: "厳選された新鮮な生卵", category: "toppings", price: 50 },
+  { id: 9, name: "追加ねぎ", description: "シャキシャキの新鮮なねぎ", category: "toppings", price: 20 },
+  { id: 10, name: "追加麺（1玉）", description: "もっと食べたい方に追加の麺", category: "toppings", price: 230 },
+  { id: 11, name: "黒毛和牛スジ和風大阪出汁カレー", description: "黒毛和牛のスジを使った本格大阪風出汁カレー", category: "curry", price: 400, popular: true },
+  { id: 12, name: "みつか坊主のエビ味噌咖喱（単品）", description: "みつか坊主特製の濃厚エビ味噌咖喱", category: "curry", price: 500 },
+  { id: 13, name: "お水", description: "清涼なお水", category: "drinks", price: 100 }
+]
 
 // カテゴリーの定義
 const categories = [
@@ -65,8 +82,43 @@ function MenuContent() {
     })
   }
 
-  // Supabaseからメニューデータを取得
+  // ダミーメニューデータを取得
   useEffect(() => {
+    async function fetchMenuData() {
+      setLoading(true)
+      
+      try {
+        // シミュレートされた非同期処理
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // ダミーデータをカテゴリーごとに整理
+        const categorizedItems: Record<string, MenuItem[]> = {}
+        
+        dummyMenuData.forEach((item) => {
+          // カテゴリーが存在しない場合は初期化
+          if (!categorizedItems[item.category]) {
+            categorizedItems[item.category] = []
+          }
+          
+          // アイテムを追加（画像はプレースホルダーを使用）
+          categorizedItems[item.category].push({
+            ...item,
+            image: item.image || "/placeholder.svg?height=200&width=200"
+          })
+        })
+        
+        setMenuItems(categorizedItems)
+        console.log('ダミーメニューデータを読み込みました:', categorizedItems)
+      } catch (e) {
+        console.error('ダミーデータ読み込み中にエラーが発生しました:', e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchMenuData()
+
+    /* Supabaseとの接続部分（コメントアウト）
     async function fetchMenuData() {
       setLoading(true)
       const supabase = createClient()
@@ -112,6 +164,7 @@ function MenuContent() {
     }
     
     fetchMenuData()
+    */
   }, [])
 
   return (

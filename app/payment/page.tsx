@@ -1,18 +1,22 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Textarea } from "@/components/ui/textarea"
+import { Separator } from "@/components/ui/separator"
 import { SpaceBackground } from "@/components/space-background"
 import { AppHeader } from "@/components/app-header"
-import { CreditCard, Smartphone, Wallet } from "lucide-react"
+import { CreditCard, DollarSign, Smartphone, Wallet } from "lucide-react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
-import { useState, Suspense } from "react"
-import { createClient } from "@/utils/supabase/client"
-import { Separator } from "@/components/ui/separator"
+import { useRouter } from "next/navigation"
+// import { createClient } from "@/utils/supabase/client"
 import { useCart } from "@/hooks/use-cart"
+import { useToast } from "@/hooks/use-toast"
+import { useState, useEffect, Suspense } from "react"
+import { useSearchParams } from 'next/navigation'
 
 // メイン決済コンテンツコンポーネント
 function PaymentContent() {
@@ -52,7 +56,7 @@ function PaymentContent() {
     setIsLoading(true);
     
     try {
-      const supabase = createClient();
+      // const supabase = createClient();
       
       // 現在の日時
       const now = new Date();
@@ -78,25 +82,25 @@ function PaymentContent() {
       localStorage.setItem('lastOrderDetails', JSON.stringify(orderDetails));
       
       // ORDERテーブルに注文データを挿入
-      const { data, error } = await supabase
-        .from('ORDER')
-        .insert({
-          totalPrice: total,
-          store_id: parseInt(storeId),
-          orderAt: now.toISOString(),
-          numbered: orderNumber,
-          status_id: 1, // 1: 注文受付
-          eat_style: eatType,
-          payment_method: paymentMethod
-        })
-        .select();
+      // const { data, error } = await supabase
+      //   .from('ORDER')
+      //   .insert({
+      //     totalPrice: total,
+      //     store_id: parseInt(storeId),
+      //     orderAt: now.toISOString(),
+      //     numbered: orderNumber,
+      //     status_id: 1, // 1: 注文受付
+      //     eat_style: eatType,
+      //     payment_method: paymentMethod
+      //   })
+      //   .select();
       
-      if (error) {
-        console.error('注文の保存に失敗しました:', error);
-        throw new Error('注文の保存に失敗しました');
-      }
+      // if (error) {
+      //   console.error('注文の保存に失敗しました:', error);
+      //   throw new Error('注文の保存に失敗しました');
+      // }
       
-      console.log('注文が完了しました:', data);
+      // console.log('注文が完了しました:', data);
       
       // カートをクリア
       clearCart();

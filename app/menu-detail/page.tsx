@@ -11,7 +11,7 @@ import { Minus, Plus, Star } from "lucide-react"
 import Image from "next/image"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useEffect, useState, Suspense } from "react"
-import { createClient } from "@/utils/supabase/client"
+// import { createClient } from "@/utils/supabase/client"
 import { useCart } from "@/hooks/use-cart"
 import { useToast } from "@/hooks/use-toast"
 
@@ -26,6 +26,23 @@ type MenuItem = {
   popular?: boolean;
   allergens?: string[];
 };
+
+// ダミーメニューデータ（提供されたデータに基づく）
+const dummyMenuData: MenuItem[] = [
+  { id: 1, name: "かけウドンド", description: "シンプルながらも深い味わいのかけウドンド", category: "udondo", price: 550, popular: true },
+  { id: 2, name: "かけ油ウドンド", description: "特製の油が香る、風味豊かなウドンド", category: "udondo", price: 550 },
+  { id: 3, name: "みつか坊主のエビ味噌咖喱ウドンド", description: "みつか坊主特製のエビ味噌咖喱と絶妙に絡むウドンド", category: "udondo", price: 730, popular: true },
+  { id: 4, name: "旨い煮豚", description: "じっくり煮込んだ旨味たっぷりの煮豚", category: "toppings", price: 400, popular: true },
+  { id: 5, name: "大阪スジ煮", description: "大阪風に仕上げた柔らかスジ煮込み", category: "toppings", price: 450 },
+  { id: 6, name: "麹漬け旨煮鶏", description: "麹に漬け込んだ柔らかジューシーな鶏肉", category: "toppings", price: 380 },
+  { id: 7, name: "ウドンドの覚醒（激辛ウマすりだね）", description: "激辛好きにはたまらない特製すりだね", category: "toppings", price: 180 },
+  { id: 8, name: "生たまご", description: "厳選された新鮮な生卵", category: "toppings", price: 50 },
+  { id: 9, name: "追加ねぎ", description: "シャキシャキの新鮮なねぎ", category: "toppings", price: 20 },
+  { id: 10, name: "追加麺（1玉）", description: "もっと食べたい方に追加の麺", category: "toppings", price: 230 },
+  { id: 11, name: "黒毛和牛スジ和風大阪出汁カレー", description: "黒毛和牛のスジを使った本格大阪風出汁カレー", category: "curry", price: 400, popular: true },
+  { id: 12, name: "みつか坊主のエビ味噌咖喱（単品）", description: "みつか坊主特製の濃厚エビ味噌咖喱", category: "curry", price: 500 },
+  { id: 13, name: "お水", description: "清涼なお水", category: "drinks", price: 100 }
+]
 
 // トッピングの型定義
 type Topping = {
@@ -130,8 +147,53 @@ function MenuDetailContent() {
     router.push('/cart');
   };
   
-  // Supabaseからメニューデータを取得
+  // ダミーメニューデータから該当アイテムを取得
   useEffect(() => {
+    async function fetchMenuItem() {
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      
+      try {
+        // シミュレートされた非同期処理
+        await new Promise(resolve => setTimeout(resolve, 300))
+        
+        // ダミーデータから該当するアイテムを検索
+        const targetId = parseInt(id);
+        const foundItem = dummyMenuData.find(item => item.id === targetId);
+        
+        if (foundItem) {
+          setMenuItem({
+            ...foundItem,
+            image: foundItem.image || "/placeholder.svg?height=400&width=400",
+            allergens: [] // ダミーデータにはアレルゲン情報なし
+          });
+          console.log('ダミーメニューアイテムを読み込みました:', foundItem);
+        } else {
+          // アイテムが見つからない場合のフォールバック
+          setMenuItem({
+            id: targetId,
+            name: "メニュー",
+            price: 0,
+            description: "メニュー情報が見つかりませんでした",
+            category: "",
+            image: "/placeholder.svg?height=400&width=400",
+            allergens: []
+          });
+        }
+      } catch (e) {
+        console.error('ダミーデータ読み込み中にエラーが発生しました:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchMenuItem();
+    
+    /* Supabaseとの接続部分（コメントアウト）
     async function fetchMenuItem() {
       if (!id) {
         setLoading(false);
@@ -185,6 +247,7 @@ function MenuDetailContent() {
     }
     
     fetchMenuItem();
+    */
   }, [id]);
 
   // IDが指定されていない場合

@@ -7,7 +7,7 @@ import { SpaceBackground } from "@/components/space-background"
 import { MapPin, Search, Navigation, Clock, CreditCard, User, UserCheck } from "lucide-react"
 import Link from "next/link"
 import { AppHeader } from "@/components/app-header"
-import { createClient } from "@/utils/supabase/client"
+// import { createClient } from "@/utils/supabase/client"
 import { useEffect, useState } from "react"
 
 // Supabaseのテーブル構成に合わせたデータ型
@@ -48,6 +48,34 @@ function mapStoreData(records: StoreRecord[]): Store[] {
   }))
 }
 
+// ダミーストアデータ（提供されたデータに基づく）
+const dummyStoreRecords: StoreRecord[] = [
+  {
+    id: 1,
+    name: "大阪蛍池店",
+    location: "大阪府豊中市蛍池2丁目5-13",
+    contactNumber: "",
+    openingHours: "24時間営業",
+    staffFlag: true
+  },
+  {
+    id: 2,
+    name: "大阪中之島店", 
+    location: "大阪府大阪市北区中之島1丁目1-1",
+    contactNumber: "",
+    openingHours: "7:00 - 23:00",
+    staffFlag: false
+  },
+  {
+    id: 3,
+    name: "富士吉田店",
+    location: "山梨県富士吉田市大和田1丁目1-1", 
+    contactNumber: "",
+    openingHours: "8:30 - 22:30",
+    staffFlag: true
+  }
+]
+
 // フォールバックストアデータ
 const fallbackStores: Store[] = [
   {
@@ -86,12 +114,32 @@ const fallbackStores: Store[] = [
 ]
 
 export default function StoresPage() {
-  const [stores, setStores] = useState<Store[]>(fallbackStores)
+  const [stores, setStores] = useState<Store[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function getStores() {
       setLoading(true)
+      
+      // ダミーデータを使用（Supabaseの代わり）
+      try {
+        // シミュレートされた非同期処理
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // ダミーデータを変換して設定
+        const mappedStores = mapStoreData(dummyStoreRecords)
+        setStores(mappedStores)
+        
+        console.log('ダミーSTOREデータを読み込みました:', mappedStores)
+      } catch (e) {
+        console.error('ダミーデータ読み込み中にエラーが発生しました:', e)
+        // エラーの場合はフォールバックデータを使用
+        setStores(fallbackStores)
+      } finally {
+        setLoading(false)
+      }
+
+      /* Supabaseとの接続部分（コメントアウト）
       const supabase = createClient()
       
       try {
@@ -116,6 +164,7 @@ export default function StoresPage() {
       } finally {
         setLoading(false)
       }
+      */
     }
 
     getStores()

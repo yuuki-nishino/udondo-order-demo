@@ -1,14 +1,15 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SpaceBackground } from "@/components/space-background"
 import { AppHeader } from "@/components/app-header"
 import { Separator } from "@/components/ui/separator"
-import { CheckCircle2 } from "lucide-react"
+import { CheckCircle2, Clock, MapPin, Utensils } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+// import { createClient } from "@/utils/supabase/client"
 import { useEffect, useState } from "react"
-import { createClient } from "@/utils/supabase/client"
 
 // 注文データの型定義
 type OrderData = {
@@ -45,14 +46,12 @@ type OrderDetails = {
 };
 
 export default function OrderCompletePage() {
+  const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<OrderData | null>(null);
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
-  const [loading, setLoading] = useState(true);
-  
+
   useEffect(() => {
     async function fetchOrderData() {
-      setLoading(true);
-      
       try {
         // ローカルストレージから注文詳細を取得
         const savedOrderDetails = localStorage.getItem('lastOrderDetails');
@@ -64,6 +63,10 @@ export default function OrderCompletePage() {
           localStorage.removeItem('lastOrderDetails');
         }
         
+        // ダミーの店舗名を設定（実際のアプリではSupabaseから取得）
+        console.log('注文完了ページでダミーデータを使用しています');
+        
+        /* Supabaseとの接続部分（コメントアウト）
         const supabase = createClient();
         
         // 最新の注文を取得
@@ -97,6 +100,7 @@ export default function OrderCompletePage() {
             storeName: storeData?.name || '不明な店舗'
           });
         }
+        */
       } catch (e) {
         console.error('データ取得中に例外が発生しました:', e);
       } finally {
@@ -136,6 +140,16 @@ export default function OrderCompletePage() {
     }
   };
 
+  // ダミー店舗名を取得する関数
+  const getStoreName = (storeId: string) => {
+    const storeNames: Record<string, string> = {
+      '1': '大阪蛍池店',
+      '2': '大阪中之島店', 
+      '3': '富士吉田店'
+    };
+    return storeNames[storeId] || '不明な店舗';
+  };
+
   return (
     <main className="min-h-screen relative">
       <SpaceBackground />
@@ -163,27 +177,30 @@ export default function OrderCompletePage() {
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between">
                     <span className="text-gray-300">店舗</span>
-                    <span className="text-white">{order?.storeName || '店舗情報取得中...'}</span>
+                    <span className="text-white">
+                      {orderDetails?.storeId ? getStoreName(orderDetails.storeId) : 
+                       order?.storeName || '大阪蛍池店'}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">注文日時</span>
                     <span className="text-white">
                       {orderDetails?.orderAt ? formatDate(orderDetails.orderAt) : 
-                       order?.orderAt ? formatDate(order.orderAt) : '取得中...'}
+                       order?.orderAt ? formatDate(order.orderAt) : formatDate(new Date().toISOString())}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">食事方法</span>
                     <span className="text-white">
                       {orderDetails?.eatType ? getEatStyleName(orderDetails.eatType) : 
-                       order?.eat_style ? getEatStyleName(order.eat_style) : '取得中...'}
+                       order?.eat_style ? getEatStyleName(order.eat_style) : '店内飲食'}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">支払い方法</span>
                     <span className="text-white">
                       {orderDetails?.paymentMethod ? getPaymentMethodName(orderDetails.paymentMethod) : 
-                       order?.payment_method ? getPaymentMethodName(order.payment_method) : '取得中...'}
+                       order?.payment_method ? getPaymentMethodName(order.payment_method) : 'クレジットカード'}
                     </span>
                   </div>
                 </div>
